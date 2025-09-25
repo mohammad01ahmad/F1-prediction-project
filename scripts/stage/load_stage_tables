@@ -1,0 +1,381 @@
+-- Load the ETL tables into stage (stg)
+
+CREATE OR ALTER PROCEDURE load_stage_tables AS
+BEGIN 
+	BEGIN TRY
+		PRINT('TRUNCATE TABLE CONSTRUCTOR PERFORMANCE')
+		TRUNCATE TABLE stg.Constructor_Performance
+		-- Constructor performance cleaned
+		PRINT('INSERTING INTO CONSTRUCTOR PERFORMANCE')
+			INSERT INTO stg.Constructor_Performance(
+				cp_constructorResultsId,
+				cp_raceId,
+				cp_constructorId,
+				cp_points
+			)
+			SELECT 
+				cp_constructorResultsId,
+				cp_raceId, 
+				cp_constructorId,
+				CAST(cp_points AS DECIMAL(5,2)) as cp_points
+			FROM Constructor_Performance
+
+
+		PRINT('TRUNCATE TABLE CONSTRUCTOR RANKINGS')
+		TRUNCATE TABLE stg.Constructor_Rankings
+		-- Constructor Ranking cleaned
+		PRINT('INSERTING INTO CONSTRUCTOR RANKINGS')
+		INSERT INTO stg.Constructor_Rankings(
+				cr_constructorStandingsId, 
+				cr_raceId,
+				cr_constructorId,
+				cr_points,
+				cr_position,
+				cr_wins	
+			)
+			SELECT 
+			cr_constructorStandingsId, 
+			cr_raceId,
+			cr_constructorId,
+			cr_points,
+			cr_position,
+			cr_wins
+			FROM Constructor_Rankings
+
+
+		PRINT('TRUNCATE TABLE DRIVER DETAILS')
+		TRUNCATE TABLE stg.Driver_Details
+		-- Driver Details cleaned
+		PRINT('INSERTING INTO DRIVER DETAILS')
+		INSERT INTO stg.Driver_Details(
+				dd_driverId,
+				dd_name,
+				dd_nationality,
+				dd_dob
+			)
+			SELECT 
+			dd_driverId,
+			REPLACE(dd_forename,'"','') + ' ' + REPLACE(dd_surname,'"','') AS dd_name,
+			REPLACE(dd_nationality, '"', '') as dd_nationality,
+			CAST(REPLACE(dd_dob, '"', '') AS DATE) AS dd_dob
+			FROM Driver_Details
+
+
+		PRINT('TRUNCATE TABLE DRIVER RANKINGS')
+		TRUNCATE TABLE stg.Driver_Rankings
+		-- Driver rankings cleaned
+		PRINT('INSERTING INTO DRIVER RANKINGS')
+		INSERT INTO stg.Driver_Rankings(
+				dr_driverStandingsId,
+				dr_raceId,
+				dr_driverId,
+				dr_points,
+				dr_position,
+				dr_wins
+			)
+			SELECT 
+			dr_driverStandingsId,
+			dr_raceId,
+			dr_driverId,
+			dr_points,
+			dr_position,
+			dr_wins
+			FROM Driver_Rankings
+		PRINT('DATA SUCCESSFULLY INSERTED INTO DRIVER RANKINGS')
+
+
+
+		PRINT('TRUNCATE TABLE LAP TIMINGS')
+		TRUNCATE TABLE stg.Lap_Timings
+		-- Lap timings cleaned
+		PRINT('INSERTING INTO LAP TIMINGS')
+		INSERT INTO stg.Lap_Timings (
+			lt_raceId,
+			lt_driverId,
+			lt_lap,
+			lt_position,
+			lt_time,
+			lt_milliseconds
+		)
+			SELECT 
+			lt_raceId,
+			lt_driverId,
+			lt_lap,
+			lt_position,
+			CAST(
+				DATEADD(
+					SECOND,
+						TRY_CAST(LEFT(REPLACE(lt_time, '"', ''), CHARINDEX(':', REPLACE(lt_time, '"', '')) - 1) AS INT) * 60 +
+						TRY_CAST(SUBSTRING(REPLACE(lt_time, '"', ''), CHARINDEX(':', REPLACE(lt_time, '"', '')) + 1, LEN(REPLACE(lt_time, '"', ''))) AS FLOAT),
+						'00:00:00' ) AS TIME(3)) AS lt_time,
+				TRY_CAST(lt_milliseconds AS INT) AS lt_milliseconds
+			FROM Lap_Timings;
+		PRINT('DATA SUCCESSFULLY INSERTED INTO LAP TIMINGS')
+
+
+		PRINT('TRUNCATE TABLE PIT STOP RECORDS ')
+		TRUNCATE TABLE stg.Pit_Stop_Records
+		-- pit stop cleaned
+		PRINT('INSERTING INTO PIT STOP RECORDS')
+		INSERT INTO stg.Pit_Stop_Records(
+			pts_raceId,
+			pts_driverId,
+			pts_stop,
+			pts_lap,	
+			pts_milliseconds
+		)
+			SELECT 
+			pts_raceId,
+			pts_driverId,
+			pts_stop,
+			pts_lap,
+			pts_milliseconds
+			FROM Pit_Stop_Records
+		PRINT('DATA SUCCESSFULLY INSERTED PIT STOP RECORDS')
+
+
+		PRINT('TRUNCATE TABLE QUALIFYING RESULTS')
+		TRUNCATE TABLE stg.Qualifying_Results
+		-- qualifying results
+		PRINT('INSERTING INTO QUALIFYING RESULTS')
+		INSERT INTO stg.Qualifying_Results(
+			qs_qualifyId,
+			qs_raceId,
+			qs_driverId,
+			qs_constructorId,
+			qs_number,
+			qs_position,	
+			qs_q1,
+			qs_q2,
+			qs_q3
+		)
+			SELECT 
+				qs_qualifyId,
+				qs_raceId,
+				qs_driverId,
+				qs_constructorId,
+				qs_number,
+				qs_position,
+				CASE REPLACE(qs_q1, '"','') WHEN '\N' THEN '0' ELSE REPLACE(qs_q1, '"','') END AS qs_q1,
+				CASE REPLACE(qs_q2, '"','') WHEN '\N' THEN '0' ELSE REPLACE(qs_q2, '"','') END AS qs_q2,
+				CASE REPLACE(qs_q3, '"','') WHEN '\N' THEN '0' ELSE REPLACE(qs_q3, '"','') END AS qs_q3
+			FROM Qualifying_Results
+		PRINT('DATA SUCCESSFULLY INSERTED QUALIFYING RESULTS')
+
+
+		PRINT('TRUNCATE TABLE RACE RESULTS')
+		TRUNCATE TABLE stg.Race_Results
+		-- race results
+		PRINT('INSERTING INTO RACE RESULTS')
+		INSERT INTO stg.Race_Results(
+			rr_resultsId,
+			rr_raceId,
+			rr_driverId,
+			rr_constructorId,
+			rr_number,
+			rr_grid,
+			rr_position,
+			rr_positionOrder,
+			rr_points,
+			rr_laps,
+			rr_time,
+			rr_milliseconds,
+			rr_fastestLap,
+			rr_rank,
+			rr_fastestLapTime,
+			rr_fastestSpeed,
+			rr_statusId
+		)
+			SELECT 
+				rr_resultsId,
+				rr_raceId,
+				rr_driverId,
+				rr_constructorId,
+				CAST((CASE rr_number WHEN '\N' THEN '0' ELSE rr_number END) AS INT) AS rr_number,
+				rr_grid,
+				CAST((CASE rr_position WHEN '\N' THEN '0' ELSE rr_position END) AS INT) AS rr_position,
+				rr_positionOrder,
+				rr_points,
+				rr_laps,
+				CASE REPLACE(rr_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_time, '"', '') END AS rr_time,
+				CASE REPLACE(rr_milliseconds, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_milliseconds, '"', '') END AS rr_milliseconds,
+				CASE REPLACE(rr_fastestLap, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_fastestLap, '"', '') END AS rr_fastestLap,
+				CASE REPLACE(rr_rank, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_rank, '"', '') END AS rr_rank,
+				CASE REPLACE(rr_fastestLapTime, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_fastestLapTime, '"', '') END AS rr_fastestLapTime,
+				CASE REPLACE(rr_fastestSpeed, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_fastestSpeed, '"', '') END AS rr_fastestSpeed,
+				rr_statusId
+			FROM Race_Results
+		PRINT('DATA SUCCESSFULLY INSERTED RACE RESULTS')
+
+
+		PRINT('TRUNCATE TABLE RACE SCHEDULE')
+		TRUNCATE TABLE stg.Race_Schedule
+		-- Race Schedule cleaned
+		PRINT('INSERTING INTO RACE SCHEDULE')
+		INSERT INTO Race_Schedule(
+			rs_raceId,
+			rs_year,
+			rs_round,
+			rs_circuitId,
+			rs_name,
+			rs_date,
+			rs_time,
+			rs_fp1_date,
+			rs_fp1_time,
+			rs_fp2_date,
+			rs_fp2_time,
+			rs_fp3_date,
+			rs_fp3_time,
+			rs_quali_date,
+			rs_quali_time,
+			rs_sprint_date,
+			rs_sprint_time
+		)
+			SELECT 
+				rs_raceId,
+				rs_year,
+				rs_round,
+				rs_circuitId,
+				REPLACE(rs_name, '"', '') AS rs_name,
+				REPLACE(rs_date, '"', '') AS rs_date,
+				REPLACE(rs_time, '"', '') AS rs_time,
+				CASE REPLACE(rs_fp1_date, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_fp1_date, '"', '') END AS rs_fp1_date,
+				CASE REPLACE(rs_fp1_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_fp1_time, '"', '') END AS rs_fp1_time,
+				CASE REPLACE(rs_fp2_date, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_fp2_date, '"', '') END AS rs_fp2_date,
+				CASE REPLACE(rs_fp2_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_fp2_time, '"', '') END AS rs_fp2_time,
+				CASE REPLACE(rs_fp3_date, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_fp3_date, '"', '') END AS rs_fp3_date,
+				CASE REPLACE(rs_fp3_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_fp3_time, '"', '') END AS rs_fp3_time,
+				CASE REPLACE(rs_quali_date, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_quali_date, '"', '') END AS rs_quali_date,
+				CASE REPLACE(rs_quali_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_quali_time, '"', '') END AS rs_quali_time,
+				CASE REPLACE(rs_sprint_date, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_sprint_date, '"', '') END AS rs_sprint_date,
+				CASE REPLACE(rs_sprint_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rs_sprint_time, '"', '') END AS rs_sprint_time
+			FROM Race_Schedule
+		PRINT('DATA SUCCESSFULLY INSERTED RACE SCHEDULE')
+
+
+		PRINT('TRUNCATE TABLE RACE STATUS')
+		TRUNCATE TABLE stg.Race_Status
+		-- Race status cleaned 
+		PRINT('INSERTING INTO RACE STATUS')
+		INSERT INTO stg.Race_Status(
+			rst_statusId,
+			rst_status
+		)
+			SELECT 
+				rst_statusId,
+				REPLACE(rst_status, '"', '') AS rst_status
+			FROM Race_Status
+		PRINT('DATA SUCCESSFULLY INSERTED RACE STATUS')
+
+
+		PRINT('TRUNCATE TABLE SEASON SUMMARIES')
+		TRUNCATE TABLE stg.Season_Summaries
+		-- Season summaries cleaned
+		PRINT('INSERTING INTO SEASON SUMMARIES')
+		INSERT INTO stg.Season_Summaries(
+			ss_year,
+			ss_url
+		)
+			SELECT 
+				ss_year,
+				REPLACE(ss_url, '"', '') AS ss_url
+			FROM Season_Summaries
+		PRINT('DATA SUCCESSFULLY INSERTED SEASON SUMMARIES')
+
+		PRINT('TRUNCATE TABLE SPRINT RACE RESULTS')
+		TRUNCATE TABLE stg.Sprint_Race_Results
+		-- Sprint race results
+		PRINT('INSERTING INTO SPRINT RACE RESULTS')
+		INSERT INTO stg.Sprint_Race_Results(
+			rr_resultsId,
+			rr_raceId,
+			rr_driverId,
+			rr_constructorId,
+			rr_number,
+			rr_grid,
+			rr_position,
+			rr_points,
+			rr_laps,
+			rr_time,
+			rr_milliseconds,
+			rr_fastestLap,
+			rr_fastestLapTime,
+			rr_statusId
+		)
+			SELECT 
+				rr_resultsId,
+				rr_raceId,
+				rr_driverId,
+				rr_constructorId,
+				CAST(rr_number AS INT) AS rr_number,
+				CAST(rr_grid AS INT) AS rr_grid,
+				CAST(CASE rr_position WHEN '\N' THEN 0 ELSE rr_position END AS INT) AS rr_position,
+				CAST(rr_points AS INT) AS rr_points,
+				CAST(rr_laps AS INT) AS rr_laps,
+				CASE REPLACE(rr_time, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_time, '"', '') END AS rr_time,
+				CAST(CASE rr_milliseconds WHEN '\N' THEN 0 ELSE rr_milliseconds END AS INT) AS rr_milliseconds,
+				CAST(CASE rr_fastestLap WHEN '\N' THEN 0 ELSE rr_fastestLap END AS INT) AS rr_fastestLap,
+				CASE REPLACE(rr_fastestLapTime, '"', '') WHEN '\N' THEN '0' ELSE REPLACE(rr_fastestLapTime, '"', '') END AS rr_fastestLapTime,
+				rr_statusId
+			FROM Sprint_Race_Results
+		PRINT('DATA SUCCESSFULLY INSERTED SPRINT RACE RESULTS')
+
+
+
+		PRINT('TRUNCATE TABLE TEAM DETAILS')
+		TRUNCATE TABLE stg.Team_Details
+		-- Team details cleaned
+		PRINT('INSERTING INTO TEAM DETAILS')
+		INSERT INTO stg.Team_Details(
+			td_constructorId,
+			td_constructorRef,
+			td_name,
+			td_nationality,
+			td_url
+		)
+			SELECT 
+				td_constructorId,
+				REPLACE(td_constructorRef, '"', '') AS td_constructorRef,
+				REPLACE(td_name, '"', '') AS td_name,
+				REPLACE(td_nationality, '"', '') AS td_nationality,
+				REPLACE(td_url, '"', '') AS td_url
+			FROM Team_Details
+		PRINT('DATA SUCCESSFULLY INSERTED TEAM DETAILS')
+
+
+		PRINT('TRUNCATE TABLE TRACK INFORMATION')
+		TRUNCATE TABLE stg.Track_Information
+		-- Track information cleaned
+		PRINT('INSERTING INTO TRACK INFORMATION')
+		INSERT INTO stg.Track_Information(
+			ti_circuitId,
+			ti_circuitRef,
+			ti_name,
+			ti_location,
+			ti_country,
+			ti_lat,
+			ti_lng,
+			ti_alt
+		)
+			SELECT 
+				ti_circuitId,
+				REPLACE(ti_circuitRef, '"', '') AS ti_circuitRef,
+				REPLACE(ti_name, '"', '') AS ti_name,
+				REPLACE(ti_location, '"', '') AS ti_location,
+				REPLACE(ti_country, '"', '') AS ti_country,
+				ti_lat,
+				ti_lng,
+				CAST(ti_alt AS INT) AS ti_alt
+			FROM Track_Information
+		PRINT('DATA SUCCESSFULLY INSERTED TRACK INFORMATION')
+		PRINT('=============================================')
+	END TRY
+
+	BEGIN CATCH
+		PRINT '============================================'
+		PRINT 'Error Message ' + CAST(ERROR_MESSAGE() AS NVARCHAR);
+		PRINT 'Error Number ' +  CAST(ERROR_NUMBER() AS NVARCHAR);
+		PRINT 'Error State' + CAST(ERROR_STATE() AS NVARCHAR);
+		PRINT '============================================'
+	END CATCH
+END		
