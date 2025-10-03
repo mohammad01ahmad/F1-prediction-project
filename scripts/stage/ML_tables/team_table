@@ -1,0 +1,61 @@
+/*
+======================================================
+
+ML TABLE FOR THE TEAMS 
+
+======================================================
+CONTAINES INFO ABOUT THE TEAMS AND RESULTS OF RACE AND 
+SPRINT RACE RESULTS
+** NO information about drivers
+------------------------------------------------------
+*/
+
+-- Table for the Teams 
+IF OBJECT_ID ('ml.team_table', 'V') IS NOT NULL
+	DROP VIEW ml.team_table;
+GO
+	CREATE VIEW ml.team_table AS 
+		SELECT 
+			cp.cp_raceId AS race_Id,
+			cp.cp_constructorId AS team_Id,
+			rs.rs_year AS race_Year,
+			CAST(rs.rs_date AS DATE) AS race_Date,
+			rs.rs_round AS race_Round,
+			rs.rs_circuitId AS circuitId,
+			COALESCE(cr.cr_position, 0) AS team_Position,
+			COALESCE(cr.cr_wins, 0) AS team_Wins,
+			cp.cp_points AS team_Points,
+			COALESCE(rr.rr_grid, 0) AS starting_Position,
+			COALESCE(rr.rr_positionOrder, 0) AS finishing_Position,
+			CAST(COALESCE(NULLIF(rr.rr_points, ''), '0') AS DECIMAL(5,2)) AS race_Points,
+			COALESCE(rr.rr_laps, 0) AS laps_Completed,
+			CAST(COALESCE(rr.rr_fastestLap, '0') AS INT) AS fastest_Lap, -- fastest lap number
+			CAST(COALESCE(rr.rr_rank, '0') AS INT) AS fastest_Lap_Rank, -- ranking of fastest lap 
+			TRY_CONVERT(TIME(3), '00:' + COALESCE(rr.rr_fastestLapTime, '0')) AS fastest_Lap_Time, -- fastest lap time
+			CAST(COALESCE(rr.rr_fastestSpeed, '0') AS DECIMAL(6,3)) AS fastest_Lap_Speed,-- speed in fastest lap 
+			COALESCE(rr.rr_statusId, 0) AS statusId,
+
+			-- sprint race details 
+			COALESCE(srr.rr_grid, 0) AS starting_Position_Sprint,
+			COALESCE(srr.rr_position, 0) AS finishing_Position_Sprint,
+			CAST(COALESCE(NULLIF(srr.rr_points, ''), '0') AS DECIMAL(5,2)) AS race_Points_Sprint,
+			COALESCE(srr.rr_laps, 0) AS laps_Completed_Sprint,
+			CAST(COALESCE(srr.rr_fastestLap, '0') AS INT) AS fastest_Lap_Sprint, -- fastest lap number
+			COALESCE(srr.rr_fastestLapTime, '0') AS fastest_Lap_Time_Sprint, -- fastest lap time 
+			COALESCE(srr.rr_statusId, 0) AS statusId_Sprint,
+
+			-- pit stop details 
+			-- pts.pts_stop,
+			-- pts.pts_lap,
+			-- pts.pts_milliseconds
+
+			TRY_CONVERT(TIME(3), '00:' + COALESCE(qr.qs_q1, '0')) AS q1,
+			TRY_CONVERT(TIME(3), '00:' + COALESCE(qr.qs_q2, '0')) AS q2,
+			TRY_CONVERT(TIME(3), '00:' + COALESCE(qr.qs_q3, '0')) AS q3
+
+		FROM stg.Constructor_Performance cp
+		LEFT JOIN stg.Constructor_Rankings cr ON cr.cr_raceId = cp.cp_raceId AND cr.cr_constructorId = cp.cp_constructorId
+		LEFT JOIN stg.Qualifying_Results qr ON qr.qs_raceId = cp.cp_raceId AND qr.qs_constructorId = cp.cp_constructorId
+		LEFT JOIN stg.Race_Results rr ON rr.rr_raceId = cp.cp_raceId AND rr.rr_constructorId = cp.cp_constructorId
+		LEFT JOIN stg.Race_Schedule rs ON rs.rs_raceId = cp.cp_raceId
+		LEFT JOIN stg.Sprint_Race_Results srr ON srr.rr_raceId = cp.cp_raceId AND srr.rr_constructorId = cp.cp_constructorId
